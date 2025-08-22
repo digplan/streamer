@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Live Camera Recorder</title>
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: black;
+  }
+  #video {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+  }
+  #controls {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+  }
+  button {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<video id="video" autoplay playsinline></video>
+
+<div id="controls">
+  <button id="recordButton">Record</button>
+  <button id="stopButton" disabled>Stop</button>
+</div>
+
+<script>
+  const video = document.getElementById('video');
+  const recordButton = document.getElementById('recordButton');
+  const stopButton = document.getElementById('stopButton');
+
+  let mediaRecorder;
+  let recordedChunks = [];
+
+  recordButton.addEventListener('click', startRecording);
+  stopButton.addEventListener('click', stopRecording);
+
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then(function(stream) {
+        video.srcObject = stream;
+        video.onloadedmetadata = function(e) {
+          video.play();
+        };
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = function(event) {
+          if (event.data.size > 0) {
+            recordedChunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = function() {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = 'recorded-video.webm';
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+
+          recordedChunks = [];
+          recordButton.disabled = false;
+          stopButton.disabled = true;
+        };
+      })
+      .catch(function(err) {
+        console.log("An error occurred: " + err);
+      });
+  } else {
+    console.log("getUserMedia is not supported by your browser.");
+  }
+
+  function startRecording() {
+    recordButton.disabled = true;
+    stopButton.disabled = false;
+    mediaRecorder.start();
+  }
+
+  function stopRecording() {
+    mediaRecorder.stop();
+  }
+</script>
+
+</body>
+</html>
