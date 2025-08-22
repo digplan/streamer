@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Live Stream Viewer</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: black;
+        }
+        #videoPlayer {
+            max-width: 100%;
+            max-height: 100vh;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+
+    <video id="videoPlayer" autoplay playsinline></video>
+
+    <script>
+        const videoPlayer = document.getElementById('videoPlayer');
+        const wsUrl = 'ws://localhost:8080'; // Replace with your WebSocket server URL
+
+        let mediaSource;
+        let sourceBuffer;
+
+        function initializeMediaSource() {
+            mediaSource = new MediaSource();
+            videoPlayer.src = URL.createObjectURL(mediaSource);
+
+            mediaSource.addEventListener('sourceopen', () => {
+                sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs=vp8,opus');
+                connectWebSocket();
+            });
+        }
+
+        function connectWebSocket() {
+            const ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('Connected to WebSocket server');
+            };
+
+            ws.onmessage = event => {
+                const videoChunk = event.data;
+                if (sourceBuffer && !sourceBuffer.updating) {
+                    try {
+                        sourceBuffer.appendBuffer(videoChunk);
+                    } catch (e) {
+                        console.error('Error appending buffer:', e);
+                    }
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('Disconnected from WebSocket server. Attempting to reconnect...');
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = error => {
+                console.error('WebSocket error:', error);
+                ws.close();
+            };
+        }
+
+        initializeMediaSource();
+    </script>
+
+</body>
+</html>
